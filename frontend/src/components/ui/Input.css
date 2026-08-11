@@ -1,0 +1,38 @@
+.mgx-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.mgx-input-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.mgx-input {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  padding: var(--space-3);
+  font-family: var(--font-body);
+  font-size: 14px;
+}
+
+.mgx-input::placeholder {
+  color: var(--color-text-faint);
+}
+
+.mgx-input:focus {
+  border-color: var(--color-accent);
+}
+
+.mgx-input--error {
+  border-color: var(--color-danger);
+}
+
+.mgx-input-error {
+  font-size: 12px;
+  color: var(--color-danger);
+}

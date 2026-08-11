@@ -1,0 +1,45 @@
+.mgx-page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: var(--space-7) var(--space-5);
+}
+
+.mgx-connectivity-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-4);
+}
+
+.mgx-connectivity-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-4);
+}
+
+.mgx-connectivity-card-header h3 {
+  font-size: 15px;
+}
+
+.mgx-connectivity-details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.mgx-connectivity-details > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.mgx-connectivity-details dt {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.mgx-connectivity-details dd {
+  margin: 0;
+  font-size: 13px;
+}

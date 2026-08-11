@@ -1,0 +1,47 @@
+.mgx-feedback-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  text-align: center;
+  padding: var(--space-7) var(--space-5);
+  color: var(--color-text-muted);
+}
+
+.mgx-feedback-state--error {
+  color: var(--color-danger);
+}
+
+.mgx-feedback-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.mgx-feedback-state--error .mgx-feedback-title {
+  color: var(--color-danger);
+}
+
+.mgx-feedback-message {
+  margin: 0;
+  font-size: 14px;
+  max-width: 42ch;
+}
+
+.mgx-spinner {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--color-border-strong);
+  border-top-color: var(--color-accent);
+  animation: mgx-spin 0.8s linear infinite;
+}
+
+@keyframes mgx-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

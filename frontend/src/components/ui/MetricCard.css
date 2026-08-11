@@ -1,0 +1,38 @@
+.mgx-metric-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 160px;
+}
+
+.mgx-metric-label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.mgx-metric-value {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+}
+
+.mgx-metric-value-number {
+  font-family: var(--font-mono);
+  font-size: 32px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.mgx-metric-value-unit {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--color-text-faint);
+}
+
+.mgx-metric-trend {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}

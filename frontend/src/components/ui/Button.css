@@ -1,0 +1,73 @@
+.mgx-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  font-family: var(--font-body);
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease, transform 60ms ease;
+  white-space: nowrap;
+}
+
+.mgx-button:active {
+  transform: translateY(1px);
+}
+
+.mgx-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.mgx-button--md {
+  padding: var(--space-3) var(--space-4);
+  font-size: 14px;
+}
+
+.mgx-button--sm {
+  padding: var(--space-2) var(--space-3);
+  font-size: 13px;
+}
+
+.mgx-button--primary {
+  background: var(--color-accent);
+  color: #1a1200;
+  border-color: var(--color-accent);
+}
+
+.mgx-button--primary:hover:not(:disabled) {
+  background: var(--color-accent-strong);
+}
+
+.mgx-button--secondary {
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  border-color: var(--color-border-strong);
+}
+
+.mgx-button--secondary:hover:not(:disabled) {
+  border-color: var(--color-accent);
+}
+
+.mgx-button--ghost {
+  background: transparent;
+  color: var(--color-text-muted);
+}
+
+.mgx-button--ghost:hover:not(:disabled) {
+  color: var(--color-text);
+  background: var(--color-surface);
+}
+
+.mgx-button--danger {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  border-color: rgba(229, 72, 77, 0.4);
+}
+
+.mgx-button--danger:hover:not(:disabled) {
+  background: rgba(229, 72, 77, 0.2);
+}
