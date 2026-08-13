@@ -167,6 +167,26 @@ npm run test     # Vitest
 npm run build    # type-checks (tsc -b) and produces a production build
 ```
 
+## Phase 2A scope (telemetry foundation)
+
+Added on top of the Phase 1 foundation, without modifying it:
+
+- `EnergyReading` and `DeviceReading` tables — time-series telemetry kept
+  separate from the core domain tables (`Microgrid`, `Device`, ...)
+- A provider-based telemetry architecture (`TelemetryProvider` interface)
+  so a future real-sensor provider (e.g. ESP32 hardware) can replace the
+  simulator without changing any API or business logic
+- `SimulationTelemetryProvider` — deterministic, seeded, time-of-day-aware
+  simulation (solar generation curve, morning/evening consumption peaks,
+  grid import/export, bounded battery state of charge). Every reading is
+  tagged `source: "SIMULATED"` and is never presented as a hardware reading
+- `GET /api/telemetry/microgrids/{id}/current` and `/history`
+- `GET /api/telemetry/devices/{id}/current` and `/history`
+
+Not yet implemented: forecasting/AI, anomaly detection, the decision/
+optimization engine, recommendations, authentication, and the customer/
+admin dashboards — these are later Phase 2 steps.
+
 ## Phase 1 scope
 
 Implemented in this phase:

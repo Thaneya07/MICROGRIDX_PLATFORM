@@ -8,6 +8,7 @@ from app.models.microgrid import Microgrid, MicrogridStatus  # noqa: F401
 from app.models.customer import Customer  # noqa: F401
 from app.models.device import Device, DeviceType, DeviceStatus  # noqa: F401
 from app.models.load import Load, LoadCategory, LoadControlMode, LoadStatus  # noqa: F401
+from app.models.telemetry import EnergyReading, DeviceReading, TelemetrySource  # noqa: F401
 
 __all__ = [
     "Base",
@@ -23,4 +24,7 @@ __all__ = [
     "LoadCategory",
     "LoadControlMode",
     "LoadStatus",
+    "EnergyReading",
+    "DeviceReading",
+    "TelemetrySource",
 ]

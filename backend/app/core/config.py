@@ -37,6 +37,37 @@ class Settings(BaseSettings):
     DB_MAX_OVERFLOW: int = Field(default=10)
     DB_ECHO: bool = Field(default=False)
 
+    # --- Telemetry ---
+    # Which TelemetryProvider implementation to use. "simulation" is the
+    # only implemented option today; "hardware" is reserved for future real
+    # sensor ingestion (e.g. ESP32) behind the same interface.
+    TELEMETRY_PROVIDER: str = Field(default="simulation")
+
+    # Deterministic seed for the simulation provider. Changing this changes
+    # the simulated "weather"/load pattern for every microgrid and device,
+    # but keeps results reproducible for a given seed.
+    SIMULATION_SEED: str = Field(default="microgridx-dev-seed")
+
+    # Simulation magnitude parameters (watts), tunable without code changes.
+    SIMULATED_PEAK_SOLAR_W: float = Field(default=4000.0)
+    SIMULATED_BASE_LOAD_W: float = Field(default=350.0)
+    SIMULATED_MORNING_PEAK_W: float = Field(default=900.0)
+    SIMULATED_EVENING_PEAK_W: float = Field(default=1500.0)
+    SIMULATED_BATTERY_CAPACITY_W: float = Field(default=3000.0)
+
+    # Bounds for historical telemetry queries, to prevent unbounded
+    # generation/query work from a single request.
+    TELEMETRY_HISTORY_MAX_SPAN_DAYS: int = Field(default=30)
+    TELEMETRY_HISTORY_MIN_INTERVAL_MINUTES: int = Field(default=1)
+
+    @field_validator("TELEMETRY_PROVIDER")
+    @classmethod
+    def _validate_telemetry_provider(cls, value: str) -> str:
+        allowed = {"simulation", "hardware"}
+        if value not in allowed:
+            raise ValueError(f"TELEMETRY_PROVIDER must be one of {sorted(allowed)}")
+        return value
+
     # --- CORS ---
     # Comma-separated list of allowed origins. No wildcard default is used
     # so that a misconfigured deployment fails closed rather than open.
