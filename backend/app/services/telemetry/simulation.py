@@ -96,16 +96,30 @@ def _jitter(entity_id: uuid.UUID, at: datetime, salt: str, magnitude: float) -> 
     return rng.uniform(-magnitude, magnitude)
 
 
+def _battery_power_w(t_hours: float) -> float:
+    """
+    Signed battery power at the microgrid level: positive = discharging
+    (supplying power to the microgrid), negative = charging (drawing power
+    from available generation/grid). Derived from the SOC trajectory so the
+    two stay consistent by construction.
+    """
+    soc_now = _battery_soc_percent(t_hours)
+    soc_prev = _battery_soc_percent(t_hours - (1 / 60))
+    trend_per_minute = soc_now - soc_prev
+    return -trend_per_minute * 200.0  # scale SOC trend into a plausible watt range
+
+
 def _device_type_power_profile(device_type: DeviceType, t_hours: float, profile: "_DayProfile") -> float:
     """Rough per-device-type power draw/output, used only for device-level simulation."""
     if device_type == DeviceType.SOLAR_INVERTER:
         return _solar_generation_w(t_hours, profile)
     if device_type == DeviceType.BATTERY:
-        # Positive = discharging (supplying power), negative = charging.
-        soc_now = _battery_soc_percent(t_hours)
-        soc_prev = _battery_soc_percent(t_hours - (1 / 60))
-        trend = soc_now - soc_prev
-        return -trend * 200.0  # scale trend into a plausible watt range
+        # Device-level reading reports instantaneous magnitude only (meters
+        # report an unsigned power draw/output); the signed direction that
+        # matters for energy-balance analysis lives on the microgrid-level
+        # EnergyReading.battery_power_w field, computed by the same
+        # underlying function (_battery_power_w) so the two never diverge.
+        return abs(_battery_power_w(t_hours))
     if device_type in (DeviceType.LOAD_CONTROLLER, DeviceType.OTHER):
         return _consumption_w(t_hours, profile) * 0.15
     if device_type == DeviceType.METER:
@@ -169,10 +183,20 @@ class SimulationTelemetryProvider(TelemetryProvider):
         consumption = _consumption_w(t_hours, profile) + _jitter(microgrid_id, at, "load", 20.0)
         consumption = max(0.0, consumption)
 
-        grid_import = max(0.0, consumption - generation)
-        grid_export = max(0.0, generation - consumption)
-
         soc = _battery_soc_percent(t_hours)
+        battery_power = _battery_power_w(t_hours)  # + discharging (supplies), - charging (draws)
+        battery_discharge = max(0.0, battery_power)
+        battery_charge = max(0.0, -battery_power)
+
+        # Energy balance, enforced by construction rather than asserted
+        # after the fact: everything supplied (generation + battery
+        # discharge + grid import) must equal everything consumed
+        # (load consumption + battery charge + grid export).
+        supply = generation + battery_discharge
+        demand = consumption + battery_charge
+        grid_import = max(0.0, demand - supply)
+        grid_export = max(0.0, supply - demand)
+
         battery_available_w = settings.SIMULATED_BATTERY_CAPACITY_W * max(0.0, (soc - 20.0) / 100.0)
         available_energy = generation + battery_available_w
 
@@ -185,6 +209,7 @@ class SimulationTelemetryProvider(TelemetryProvider):
             grid_export_w=round(grid_export, 2),
             available_energy_w=round(available_energy, 2),
             battery_soc_percent=round(soc, 2),
+            battery_power_w=round(battery_power, 2),
             source=TelemetrySource.SIMULATED,
         )
 

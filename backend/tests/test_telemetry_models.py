@@ -27,6 +27,7 @@ def test_energy_reading_has_expected_columns():
         "grid_export_w",
         "available_energy_w",
         "battery_soc_percent",
+        "battery_power_w",
         "source",
         "created_at",
     }.issubset(columns)

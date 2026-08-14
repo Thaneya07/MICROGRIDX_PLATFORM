@@ -32,6 +32,7 @@ class EnergyReadingData:
     available_energy_w: float
     source: TelemetrySource
     battery_soc_percent: Optional[float] = None
+    battery_power_w: Optional[float] = None
 
 
 @dataclass(frozen=True)

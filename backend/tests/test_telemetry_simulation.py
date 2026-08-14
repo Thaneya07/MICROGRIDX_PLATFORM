@@ -1,6 +1,8 @@
 import uuid
 from datetime import datetime, timezone
 
+import pytest
+
 from app.models.device import DeviceStatus, DeviceType
 from app.models.telemetry import TelemetrySource
 from app.services.telemetry.simulation import SimulationTelemetryProvider
@@ -56,6 +58,43 @@ def test_battery_soc_within_bounds():
         at = datetime(2026, 6, 15, hour, 0, tzinfo=timezone.utc)
         reading = provider._energy_reading_at(MICROGRID_ID, at)
         assert 0.0 <= reading.battery_soc_percent <= 100.0
+
+
+def test_energy_balance_invariant_holds_across_the_day():
+    """
+    Regression test for the telemetry consistency review: supply
+    (generation + battery discharge + grid import) must equal demand
+    (consumption + battery charge + grid export) at every timestamp,
+    including when the battery is charging or discharging.
+    """
+    provider = SimulationTelemetryProvider()
+    for hour in range(0, 24):
+        for minute in (0, 15, 30, 45):
+            at = datetime(2026, 6, 15, hour, minute, tzinfo=timezone.utc)
+            reading = provider._energy_reading_at(MICROGRID_ID, at)
+
+            battery_discharge = max(0.0, reading.battery_power_w)
+            battery_charge = max(0.0, -reading.battery_power_w)
+
+            supply = reading.generation_w + battery_discharge + reading.grid_import_w
+            demand = reading.consumption_w + battery_charge + reading.grid_export_w
+
+            assert supply == pytest.approx(demand, abs=0.05), (
+                f"Energy balance violated at {at}: supply={supply}, demand={demand}, reading={reading}"
+            )
+
+
+def test_battery_power_w_is_present_and_signed():
+    provider = SimulationTelemetryProvider()
+    readings = [
+        provider._energy_reading_at(MICROGRID_ID, datetime(2026, 6, 15, h, 0, tzinfo=timezone.utc))
+        for h in range(24)
+    ]
+    assert all(r.battery_power_w is not None for r in readings)
+    # Over a full day the battery should both charge (negative) and
+    # discharge (positive) at some point, given the sinusoidal SOC model.
+    assert any(r.battery_power_w > 0 for r in readings)
+    assert any(r.battery_power_w < 0 for r in readings)
 
 
 def test_historical_energy_readings_cover_requested_range():

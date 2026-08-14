@@ -14,7 +14,7 @@ import enum
 import uuid
 from typing import Optional
 
-from sqlalchemy import DateTime, Enum, Float, ForeignKey, Index, String
+from sqlalchemy import CheckConstraint, DateTime, Enum, Float, ForeignKey, Index, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -33,12 +33,33 @@ class EnergyReading(UUIDPrimaryKeyMixin, Base):
     """
     A microgrid-level energy snapshot at a point in time: total consumption,
     renewable generation, grid import/export, available energy, and (where
-    applicable) aggregate battery state of charge.
+    applicable) battery state of charge and signed battery power flow.
+
+    `battery_power_w` is signed: positive means the battery is discharging
+    (supplying power to the microgrid), negative means it is charging
+    (drawing power). Together with `consumption_w`, `generation_w`,
+    `grid_import_w`, and `grid_export_w`, it must satisfy the power-balance
+    invariant enforced by the telemetry provider at write time:
+
+        generation_w + max(0, battery_power_w) + grid_import_w
+            == consumption_w + max(0, -battery_power_w) + grid_export_w
     """
 
     __tablename__ = "energy_readings"
     __table_args__ = (
         Index("ix_energy_readings_microgrid_recorded_at", "microgrid_id", "recorded_at"),
+        UniqueConstraint(
+            "microgrid_id", "recorded_at", "source", name="uq_energy_readings_microgrid_recorded_source"
+        ),
+        CheckConstraint("consumption_w >= 0", name="ck_energy_readings_consumption_non_negative"),
+        CheckConstraint("generation_w >= 0", name="ck_energy_readings_generation_non_negative"),
+        CheckConstraint("grid_import_w >= 0", name="ck_energy_readings_grid_import_non_negative"),
+        CheckConstraint("grid_export_w >= 0", name="ck_energy_readings_grid_export_non_negative"),
+        CheckConstraint("available_energy_w >= 0", name="ck_energy_readings_available_energy_non_negative"),
+        CheckConstraint(
+            "battery_soc_percent IS NULL OR (battery_soc_percent >= 0 AND battery_soc_percent <= 100)",
+            name="ck_energy_readings_battery_soc_range",
+        ),
     )
 
     microgrid_id: Mapped[uuid.UUID] = mapped_column(
@@ -52,6 +73,7 @@ class EnergyReading(UUIDPrimaryKeyMixin, Base):
     grid_export_w: Mapped[float] = mapped_column(Float, nullable=False)
     available_energy_w: Mapped[float] = mapped_column(Float, nullable=False)
     battery_soc_percent: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    battery_power_w: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
 
     source: Mapped[TelemetrySource] = mapped_column(
         Enum(TelemetrySource, name="telemetry_source"), nullable=False
@@ -76,6 +98,12 @@ class DeviceReading(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "device_readings"
     __table_args__ = (
         Index("ix_device_readings_device_recorded_at", "device_id", "recorded_at"),
+        UniqueConstraint(
+            "device_id", "recorded_at", "source", name="uq_device_readings_device_recorded_source"
+        ),
+        CheckConstraint("power_w >= 0", name="ck_device_readings_power_non_negative"),
+        CheckConstraint("voltage_v >= 0", name="ck_device_readings_voltage_non_negative"),
+        CheckConstraint("current_a >= 0", name="ck_device_readings_current_non_negative"),
     )
 
     device_id: Mapped[uuid.UUID] = mapped_column(

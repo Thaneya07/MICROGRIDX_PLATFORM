@@ -23,6 +23,7 @@ class EnergyReadingRead(BaseModel):
     grid_export_w: float
     available_energy_w: float
     battery_soc_percent: Optional[float]
+    battery_power_w: Optional[float]
     source: TelemetrySource
 
 

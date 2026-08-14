@@ -50,6 +50,13 @@ class ServiceUnavailableError(AppError):
     error_code = "SERVICE_UNAVAILABLE"
 
 
+class InsufficientDataError(AppError):
+    """Raised when there is not enough persisted telemetry to compute a result reliably."""
+
+    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    error_code = "INSUFFICIENT_DATA"
+
+
 def _error_response(status_code: int, code: str, message: str, details: Optional[Dict[str, Any]] = None) -> JSONResponse:
     return JSONResponse(
         status_code=status_code,

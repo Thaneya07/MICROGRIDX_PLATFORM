@@ -68,6 +68,11 @@ class Settings(BaseSettings):
             raise ValueError(f"TELEMETRY_PROVIDER must be one of {sorted(allowed)}")
         return value
 
+    # --- Analytics ---
+    ANALYTICS_MIN_READINGS: int = Field(default=2)
+    ANALYTICS_MAX_SPAN_DAYS: int = Field(default=90)
+    ANALYTICS_DEFAULT_LOOKBACK_DAYS: int = Field(default=7)
+
     # --- CORS ---
     # Comma-separated list of allowed origins. No wildcard default is used
     # so that a misconfigured deployment fails closed rather than open.

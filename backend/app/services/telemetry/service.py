@@ -51,6 +51,7 @@ class TelemetryService:
             grid_export_w=data.grid_export_w,
             available_energy_w=data.available_energy_w,
             battery_soc_percent=data.battery_soc_percent,
+            battery_power_w=data.battery_power_w,
             source=data.source,
         )
         self.db.add(row)
@@ -89,6 +90,7 @@ class TelemetryService:
                 grid_export_w=d.grid_export_w,
                 available_energy_w=d.available_energy_w,
                 battery_soc_percent=d.battery_soc_percent,
+                battery_power_w=d.battery_power_w,
                 source=d.source,
             )
             for d in missing

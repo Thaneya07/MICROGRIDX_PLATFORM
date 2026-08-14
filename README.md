@@ -167,6 +167,59 @@ npm run test     # Vitest
 npm run build    # type-checks (tsc -b) and produces a production build
 ```
 
+## Phase 2, Step 4 (energy analytics)
+
+Built directly on persisted telemetry, with calculation logic kept out of
+the API layer:
+
+```
+EnergyReading (DB) -> AnalyticsService -> metrics / patterns / profile -> API
+```
+
+- **Metrics** (`app/services/analytics/metrics.py`): energy totals (Wh) via
+  trapezoidal integration of power over time, solar self-consumption, grid
+  import/export energy, peak/average demand, load factor, renewable
+  contribution %, grid dependency %, and battery charge/discharge/
+  throughput where battery data exists.
+- **Patterns** (`app/services/analytics/patterns.py`): hourly consumption/
+  generation averages, weekday vs weekend averages, peak-period detection
+  (statistically meaningful peaks only — a flat load correctly reports no
+  peaks), base-load estimation (10th percentile), consumption variability
+  (coefficient of variation), solar/load correlation (Pearson), grid
+  import energy share, battery active fraction.
+- **Customer energy profile** (`app/services/analytics/profile.py`):
+  combines the above into a profile with data-driven behavioural
+  characteristics (e.g. `evening-heavy`, `high-variability`,
+  `grid-dependent`, `solar-dominant`) — each characteristic carries the
+  exact numeric comparison that produced it, never an unexplained label.
+- `GET /api/energy/microgrids/{id}/summary`
+- `GET /api/energy/microgrids/{id}/patterns`
+- `GET /api/energy/microgrids/{id}/profile`
+
+All three require an explicit `source` (defaults to `SIMULATED`) so
+simulated and (future) hardware readings are never blended into one
+aggregate, and raise `422 INSUFFICIENT_DATA` rather than fabricating a
+result when too few readings exist in the requested range.
+
+### Telemetry consistency review (done as part of this step)
+
+Before building analytics, the telemetry layer was audited for logical
+consistency and two real defects were fixed:
+
+1. Battery charge/discharge was invisible in the microgrid-level energy
+   balance (SOC could move with no corresponding power flow accounted for).
+   Added a signed `battery_power_w` field and rebuilt the simulation so
+   `generation + battery_discharge + grid_import == consumption +
+   battery_charge + grid_export` holds by construction, with a regression
+   test checking this invariant across a full simulated day.
+2. No database-level protection against physically-invalid values (e.g.
+   negative power) or duplicate `(entity, timestamp, source)` rows — added
+   `CHECK` and `UNIQUE` constraints to `energy_readings`/`device_readings`.
+
+Not yet implemented: forecasting/AI, anomaly detection, the decision/
+optimization engine, recommendations, authentication, and the customer/
+admin dashboards.
+
 ## Phase 2A scope (telemetry foundation)
 
 Added on top of the Phase 1 foundation, without modifying it:
