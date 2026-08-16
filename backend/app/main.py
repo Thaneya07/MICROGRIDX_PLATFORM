@@ -10,7 +10,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import energy, health, telemetry
+from app.api import energy, forecast, health, telemetry
 from app.core.config import get_settings
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging, get_logger
@@ -52,6 +52,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(telemetry.router)
     app.include_router(energy.router)
+    app.include_router(forecast.router)
 
     return app
 

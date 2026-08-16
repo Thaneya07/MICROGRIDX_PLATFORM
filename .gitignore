@@ -33,3 +33,8 @@ Thumbs.db
 
 # Docker
 docker-compose.override.yml
+
+# Forecasting model artifacts (should live outside the repo per
+# FORECAST_MODEL_DIR default, but ignored here defensively)
+*.joblib
+microgridx_forecast_models/

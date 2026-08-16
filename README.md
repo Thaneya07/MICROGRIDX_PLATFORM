@@ -167,6 +167,64 @@ npm run test     # Vitest
 npm run build    # type-checks (tsc -b) and produces a production build
 ```
 
+## Phase 2, Step 5 (forecasting)
+
+Forecasting for `DEMAND` (consumption) and `SOLAR_GENERATION`, built on
+persisted telemetry, with training as an explicit, auditable action:
+
+```
+EnergyReading (DB, single source)
+    -> chronological train/validation/test split
+    -> calendar feature preparation
+    -> RandomForestRegressor training
+    -> evaluation (MAE/RMSE/SMAPE/R2) vs. a seasonal-naive baseline
+    -> persistence (model file + ForecastModel metadata row)
+```
+
+- **Algorithm selection** (`app/services/forecasting/model.py`, full
+  rationale in the module docstring): RandomForestRegressor, chosen over
+  deep sequence models (LSTM/TFT/PatchTST — too data-hungry for current
+  telemetry volumes) and over boosted trees (a bagged ensemble is more
+  robust to a small dataset with default hyperparameters, and its
+  per-tree prediction spread gives an honest, if approximate, uncertainty
+  estimate). This is a documented trade-off, not a fixed requirement —
+  revisit once more training history exists.
+- **Features** (`features.py`): calendar-only (cyclically-encoded
+  hour-of-day, day-of-week, month, weekend flag). No lag features — the
+  only data source today (`SimulationTelemetryProvider`) generates values
+  as a deterministic function of time-of-day, so lag features would add
+  recursive-forecast complexity without evidence of benefit; revisit once
+  hardware telemetry with real short-term autocorrelation exists.
+- **Baseline** (`baseline.py`): seasonal-naive (historical average per
+  hour-of-day × weekend/weekday bucket) — the honest floor every trained
+  model is compared against on the same held-out test set. In one live
+  verification run, the baseline actually beat the trained model on the
+  `DEMAND` target (MAE 36.9 vs 57.1) while the trained model won clearly
+  on `SOLAR_GENERATION` (MAE 84.3 vs 143.5) — both results are reported
+  as-is, not adjusted to favor the "advanced" model.
+- **Uncertainty**: derived from the spread across the Random Forest's
+  individual trees (mean ± ~1.96·std), explicitly labeled in every API
+  response as an approximation, not a calibrated confidence interval.
+- `POST /api/forecast/microgrids/{id}/train?target=DEMAND|SOLAR_GENERATION`
+  — refuses to train (`422 INSUFFICIENT_DATA`) below
+  `FORECAST_MIN_TRAINING_READINGS` (default 60) readings for the requested
+  source.
+- `GET /api/forecast/microgrids/{id}?target=&start=&end=&interval_minutes=`
+  — `404` if no model has been trained yet for that target/source (training
+  is never triggered implicitly); `400 INVALID_HORIZON` beyond
+  `FORECAST_MAX_HORIZON_DAYS` (default 14).
+- `GET /api/forecast/microgrids/{id}/models` — full training history/audit
+  trail for a microgrid.
+
+Every response carries an explicit data-provenance note: models are
+trained and evaluated on `SIMULATED` telemetry only, and all metrics are
+DEMO/SIMULATION results, not validated real-world accuracy. `source` is
+required end-to-end (train, predict) so SIMULATED and HARDWARE data are
+never blended into one model.
+
+Not yet implemented: anomaly detection, the decision/optimization engine,
+recommendations, authentication, and the customer/admin dashboards.
+
 ## Phase 2, Step 4 (energy analytics)
 
 Built directly on persisted telemetry, with calculation logic kept out of

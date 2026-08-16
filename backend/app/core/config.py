@@ -73,6 +73,30 @@ class Settings(BaseSettings):
     ANALYTICS_MAX_SPAN_DAYS: int = Field(default=90)
     ANALYTICS_DEFAULT_LOOKBACK_DAYS: int = Field(default=7)
 
+    # --- Forecasting ---
+    # Minimum number of readings required before a model may be trained at
+    # all. Below this, training is refused outright (INSUFFICIENT_DATA)
+    # rather than fitting an unreliable model.
+    FORECAST_MIN_TRAINING_READINGS: int = Field(default=60)
+    # Chronological split fractions for train/validation/test. Must sum to
+    # < 1.0 (remainder goes to test).
+    FORECAST_TRAIN_SPLIT: float = Field(default=0.7)
+    FORECAST_VALIDATION_SPLIT: float = Field(default=0.15)
+    FORECAST_RANDOM_STATE: int = Field(default=42)
+    FORECAST_MAX_HORIZON_DAYS: int = Field(default=14)
+    FORECAST_MAX_TRAINING_LOOKBACK_DAYS: int = Field(default=180)
+    # Directory where trained model artifacts (joblib files) are persisted.
+    # Deliberately outside the repository/working tree so trained binaries
+    # are never accidentally committed.
+    FORECAST_MODEL_DIR: str = Field(default="/tmp/microgridx_forecast_models")
+
+    @field_validator("FORECAST_TRAIN_SPLIT", "FORECAST_VALIDATION_SPLIT")
+    @classmethod
+    def _validate_split_fraction(cls, value: float) -> float:
+        if not (0.0 < value < 1.0):
+            raise ValueError("Split fractions must be between 0 and 1.")
+        return value
+
     # --- CORS ---
     # Comma-separated list of allowed origins. No wildcard default is used
     # so that a misconfigured deployment fails closed rather than open.
