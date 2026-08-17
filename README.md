@@ -167,6 +167,66 @@ npm run test     # Vitest
 npm run build    # type-checks (tsc -b) and produces a production build
 ```
 
+## Phase 2, Step 6 (3D energy system visualization)
+
+An interactive 3D representation of a microgrid's physical energy system
+(solar array, battery, meter/grid connection, load controller, sensors,
+loads, and animated energy-flow paths), built with React Three Fiber +
+Three.js + Drei inside the existing frontend. Observation-only — it does
+not control any device.
+
+```
+EnergyReading / DeviceReading (DB)
+        |
+        v
+TelemetryService (existing, unmodified)
+        |
+        v
+build_microgrid_snapshot() (new, composes existing service calls)
+        |
+        +-----------------------------+
+        |                             |
+        v                             v
+GET /api/telemetry/microgrids/    WS /api/telemetry/microgrids/
+  {id}/snapshot (REST fallback)     {id}/stream (live, ticks every
+                                     TELEMETRY_STREAM_INTERVAL_SECONDS)
+        |                             |
+        +-----------------------------+
+        |
+        v
+useTelemetryStream() — tries WS first, falls back to REST polling
+        |
+        v
+MicrogridScene (React Three Fiber) — solar/battery/meter/load-controller/
+sensor meshes + animated flow lines, all driven by the snapshot
+```
+
+- **New endpoints** (both additive, appended to `app/api/telemetry.py`
+  without touching any existing route): `GET .../snapshot` (REST) and
+  `WS .../stream` (live). Both return the identical `MicrogridSnapshot`
+  shape (`app/schemas/telemetry_snapshot.py`) — energy reading, every
+  device reading tagged with `device_type`, and the microgrid's loads.
+- **Hardware readiness**: the snapshot is built from the existing,
+  provider-agnostic `TelemetryProvider` interface. When
+  `HardwareTelemetryProvider` (ESP32 + INA219 + DHT22, still a stub) is
+  implemented, neither endpoint nor the 3D scene requires any change —
+  the stream simply starts broadcasting `source: "HARDWARE"` snapshots.
+- **Source separation**: `source` is present on every snapshot and every
+  device reading; the frontend's `DataSourceBadge` always shows SIMULATED
+  or HARDWARE, never blending or guessing.
+- **Forecast integration**: `ForecastPanel` renders forecast data in a
+  clearly separate, badge-labeled panel — never merged into the live 3D
+  scene or live metrics, per the product rule that forecast and live
+  measurements must always be visually and structurally distinct.
+- **Resilience**: `useTelemetryStream` tries the WebSocket first (4s
+  connect timeout) and falls back to polling the REST snapshot endpoint if
+  the socket cannot be established or drops. Loading, disconnected, empty
+  (no energy reading yet), and error states are all handled explicitly in
+  `VisualizationPage`.
+
+Not yet implemented: authentication, the decision/optimization engine, and
+direct hardware control (out of scope for this step, as instructed).
+
 ## Phase 2, Step 5 (forecasting)
 
 Forecasting for `DEMAND` (consumption) and `SOLAR_GENERATION`, built on

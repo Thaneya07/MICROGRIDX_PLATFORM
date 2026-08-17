@@ -30,6 +30,16 @@ from app.services.telemetry.dependencies import get_telemetry_provider
 from app.services.telemetry.base import TelemetryProvider
 from app.services.telemetry.service import TelemetryService
 
+# --- Step 6 additions (3D visualization): snapshot + live stream ---
+import asyncio
+from fastapi import WebSocket, WebSocketDisconnect
+from app.database.connection import SessionLocal
+from app.schemas.telemetry_snapshot import MicrogridSnapshot
+from app.services.telemetry.snapshot import build_microgrid_snapshot
+from app.core.logging import get_logger
+
+_stream_logger = get_logger("app.api.telemetry.stream")
+
 router = APIRouter(prefix="/api/telemetry", tags=["telemetry"])
 settings = get_settings()
 
@@ -117,3 +127,96 @@ def get_device_reading_history(
         interval_minutes=interval_minutes,
         readings=[DeviceReadingRead.model_validate(r) for r in readings],
     )
+
+
+# ============================================================================
+# Step 6 additions: microgrid snapshot (REST) + live telemetry stream (WS)
+#
+# These are new, additive endpoints for the 3D visualization feature. They
+# do not modify any endpoint or function above. Both use the same
+# MicrogridSnapshot DTO (app/schemas/telemetry_snapshot.py), built from the
+# existing, unmodified TelemetryService — so the WebSocket stream and its
+# REST fallback are guaranteed to return identical payload shapes.
+# ============================================================================
+
+
+@router.get("/microgrids/{microgrid_id}/snapshot", response_model=MicrogridSnapshot)
+def get_microgrid_snapshot(
+    microgrid_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    provider: TelemetryProvider = Depends(get_telemetry_provider),
+) -> MicrogridSnapshot:
+    """
+    One-call snapshot of a microgrid's current energy reading, every
+    device's current reading (tagged with device_type), and its loads.
+    This is the REST fallback for the WebSocket stream below: the 3D
+    visualization frontend polls this endpoint if the WebSocket connection
+    cannot be established, using the exact same payload shape either way.
+    """
+    return build_microgrid_snapshot(db, provider, microgrid_id)
+
+
+@router.websocket("/microgrids/{microgrid_id}/stream")
+async def stream_microgrid_telemetry(
+    websocket: WebSocket,
+    microgrid_id: uuid.UUID,
+    interval_seconds: float = Query(default=settings.TELEMETRY_STREAM_INTERVAL_SECONDS, ge=1.0, le=60.0),
+) -> None:
+    """
+    Live telemetry stream for the 3D visualization (Step 6).
+
+    Pushes a MicrogridSnapshot every `interval_seconds`. Uses the
+    configured TelemetryProvider (get_telemetry_provider) exactly like the
+    REST endpoints — when a real HardwareTelemetryProvider is implemented
+    for ESP32/INA219/DHT22 sensors, this endpoint requires no changes: it
+    will simply start broadcasting HARDWARE-sourced snapshots instead of
+    SIMULATED ones, using the same MicrogridSnapshot shape.
+
+    Each SQLAlchemy session is scoped to a single tick (opened and closed
+    within the loop) rather than held open for the lifetime of the
+    connection, since a visualization client may stay connected far longer
+    than a normal request/response cycle.
+    """
+    await websocket.accept()
+
+    # Validate the microgrid exists before starting the broadcast loop.
+    validation_db = SessionLocal()
+    try:
+        from app.models.microgrid import Microgrid
+
+        microgrid = validation_db.get(Microgrid, microgrid_id)
+    finally:
+        validation_db.close()
+
+    if microgrid is None:
+        await websocket.send_json(
+            {"type": "error", "code": "NOT_FOUND", "message": f"Microgrid {microgrid_id} not found."}
+        )
+        await websocket.close(code=4404)
+        return
+
+    provider = get_telemetry_provider()
+
+    try:
+        while True:
+            tick_db = SessionLocal()
+            try:
+                snapshot = build_microgrid_snapshot(tick_db, provider, microgrid_id)
+                payload = {"type": "snapshot", **snapshot.model_dump(mode="json")}
+            except Exception as exc:  # noqa: BLE001 - reported to the client, connection stays open
+                _stream_logger.error(
+                    "Telemetry stream tick failed",
+                    exc_info=exc,
+                    extra={"context": {"microgrid_id": str(microgrid_id)}},
+                )
+                payload = {"type": "error", "code": "STREAM_ERROR", "message": str(exc)}
+            finally:
+                tick_db.close()
+
+            await websocket.send_json(payload)
+            await asyncio.sleep(interval_seconds)
+    except WebSocketDisconnect:
+        _stream_logger.info(
+            "Telemetry stream client disconnected",
+            extra={"context": {"microgrid_id": str(microgrid_id)}},
+        )

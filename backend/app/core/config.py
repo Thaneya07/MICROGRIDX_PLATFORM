@@ -97,6 +97,11 @@ class Settings(BaseSettings):
             raise ValueError("Split fractions must be between 0 and 1.")
         return value
 
+    # --- Live streaming (Step 6: 3D visualization) ---
+    # Interval between broadcast ticks on the telemetry WebSocket stream.
+    # Decoupled from any particular provider's data-generation cadence.
+    TELEMETRY_STREAM_INTERVAL_SECONDS: float = Field(default=3.0)
+
     # --- CORS ---
     # Comma-separated list of allowed origins. No wildcard default is used
     # so that a misconfigured deployment fails closed rather than open.
