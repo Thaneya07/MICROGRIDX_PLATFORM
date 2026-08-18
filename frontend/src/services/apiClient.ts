@@ -2,6 +2,7 @@ import { API_BASE_URL } from "./config";
 import type { ApiErrorBody, DatabaseHealthResponse, HealthResponse } from "@/types/api";
 import type { MicrogridSnapshot } from "@/types/telemetry";
 import type { ForecastResponse, ForecastTarget } from "@/types/forecast";
+import type { EnergySummaryResponse } from "@/types/analytics";
 
 export class ApiError extends Error {
   status: number;
@@ -61,6 +62,14 @@ export const apiClient = {
         start
       )}&end=${encodeURIComponent(end)}&interval_minutes=${intervalMinutes}`
     ),
+
+  getEnergySummary: (microgridId: string, start?: string, end?: string) => {
+    const params = new URLSearchParams();
+    if (start) params.set("start", start);
+    if (end) params.set("end", end);
+    const query = params.toString() ? `?${params.toString()}` : "";
+    return request<EnergySummaryResponse>(`/api/energy/microgrids/${microgridId}/summary${query}`);
+  },
 };
 
 /** WebSocket URL for the live telemetry stream, derived from API_BASE_URL (http(s) -> ws(s)). */

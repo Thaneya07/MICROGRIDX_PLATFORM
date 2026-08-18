@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { clamp } from "./sceneUtils";
@@ -8,6 +8,7 @@ export interface BatteryUnitProps {
   socPercent: number | null;
   powerW: number | null; // signed: positive = discharging, negative = charging
   online: boolean;
+  onSelect?: () => void;
 }
 
 const CHARGE_COLOR = "#2dd4bf";
@@ -15,8 +16,9 @@ const DISCHARGE_COLOR = "#f5a623";
 const IDLE_COLOR = "#5a6773";
 
 /** Battery enclosure with an internal fill bar scaled to SOC, colored by charge/discharge direction. */
-export function BatteryUnit({ position, socPercent, powerW, online }: BatteryUnitProps) {
+export function BatteryUnit({ position, socPercent, powerW, online, onSelect }: BatteryUnitProps) {
   const fillRef = useRef<THREE.Mesh>(null);
+  const [hovered, setHovered] = useState(false);
   const soc = clamp(socPercent ?? 0, 0, 100);
   const fillHeight = 1.2 * (soc / 100);
 
@@ -33,7 +35,24 @@ export function BatteryUnit({ position, socPercent, powerW, online }: BatteryUni
 
   return (
     <group position={position}>
-      <mesh castShadow receiveShadow>
+      <mesh
+        castShadow
+        receiveShadow
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelect?.();
+        }}
+        onPointerOver={(e) => {
+          e.stopPropagation();
+          setHovered(true);
+          document.body.style.cursor = "pointer";
+        }}
+        onPointerOut={() => {
+          setHovered(false);
+          document.body.style.cursor = "auto";
+        }}
+        scale={hovered ? [1.05, 1.02, 1.05] : [1, 1, 1]}
+      >
         <boxGeometry args={[0.7, 1.3, 0.5]} />
         <meshStandardMaterial color="#1a232c" metalness={0.5} roughness={0.5} transparent opacity={0.35} />
       </mesh>

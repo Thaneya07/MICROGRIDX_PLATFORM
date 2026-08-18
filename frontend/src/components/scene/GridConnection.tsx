@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { normalizePower, REFERENCE_MAX_GRID_W } from "./sceneUtils";
@@ -8,11 +8,13 @@ export interface GridConnectionProps {
   gridImportW: number;
   gridExportW: number;
   online: boolean;
+  onSelect?: () => void;
 }
 
 /** Grid connection point / meter. Glows amber on import, teal on export, gray when balanced. */
-export function GridConnection({ position, gridImportW, gridExportW, online }: GridConnectionProps) {
+export function GridConnection({ position, gridImportW, gridExportW, online, onSelect }: GridConnectionProps) {
   const materialRef = useRef<THREE.MeshStandardMaterial>(null);
+  const [hovered, setHovered] = useState(false);
   const importing = online && gridImportW > gridExportW && gridImportW > 1;
   const exporting = online && gridExportW > gridImportW && gridExportW > 1;
   const magnitude = normalizePower(Math.max(gridImportW, gridExportW), REFERENCE_MAX_GRID_W);
@@ -30,7 +32,24 @@ export function GridConnection({ position, gridImportW, gridExportW, online }: G
         <cylinderGeometry args={[0.05, 0.05, 1.6, 8]} />
         <meshStandardMaterial color="#38495a" />
       </mesh>
-      <mesh position={[0, 1.2, 0]} castShadow>
+      <mesh
+        position={[0, 1.2, 0]}
+        castShadow
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelect?.();
+        }}
+        onPointerOver={(e) => {
+          e.stopPropagation();
+          setHovered(true);
+          document.body.style.cursor = "pointer";
+        }}
+        onPointerOut={() => {
+          setHovered(false);
+          document.body.style.cursor = "auto";
+        }}
+        scale={hovered ? 1.15 : 1}
+      >
         <boxGeometry args={[0.35, 0.35, 0.18]} />
         <meshStandardMaterial ref={materialRef} color="#141a21" emissive={color} emissiveIntensity={0.15} />
       </mesh>

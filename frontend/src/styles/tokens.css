@@ -108,3 +108,25 @@ a {
     transition-duration: 0.001ms !important;
   }
 }
+
+.mgx-nav-link {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-decoration: none;
+  border: 1px solid transparent;
+}
+
+.mgx-nav-link:hover {
+  color: var(--color-text);
+  background: var(--color-surface);
+}
+
+.mgx-nav-link--active {
+  color: #1a1200;
+  background: var(--color-accent);
+}

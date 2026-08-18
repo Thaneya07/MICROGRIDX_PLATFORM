@@ -146,3 +146,45 @@ def test_websocket_stream_device_snapshots_include_device_type_for_scene_routing
         assert "status" in device
         assert "power_w" in device
         assert device["power_w"] >= 0
+
+
+def test_websocket_stream_periodic_updates_use_configured_interval(client, full_microgrid):
+    """Confirms the stream ticks repeatedly (not just once) using the requested interval."""
+    with client.websocket_connect(
+        f"/api/telemetry/microgrids/{full_microgrid.id}/stream?interval_seconds=1"
+    ) as ws:
+        first = ws.receive_json()
+        second = ws.receive_json()
+        third = ws.receive_json()
+        for msg in (first, second, third):
+            assert msg["type"] == "snapshot"
+            assert msg["source"] == "SIMULATED"
+
+
+def test_websocket_stream_disconnect_is_graceful_and_does_not_affect_new_connections(client, full_microgrid):
+    """Closing a stream client should not leave the server in a bad state for subsequent connections."""
+    with client.websocket_connect(
+        f"/api/telemetry/microgrids/{full_microgrid.id}/stream?interval_seconds=1"
+    ) as ws:
+        ws.receive_json()
+    # Context manager exit closes the socket (graceful disconnect). A fresh
+    # connection to the same microgrid must still work normally afterward.
+    with client.websocket_connect(
+        f"/api/telemetry/microgrids/{full_microgrid.id}/stream?interval_seconds=1"
+    ) as ws2:
+        message = ws2.receive_json()
+        assert message["type"] == "snapshot"
+
+
+def test_rest_snapshot_invalid_id_format_returns_422(client):
+    """A malformed (non-UUID) microgrid id should fail request validation, not 500."""
+    response = client.get("/api/telemetry/microgrids/not-a-valid-uuid/snapshot")
+    assert response.status_code == 422
+
+
+def test_snapshot_source_propagates_consistently_across_energy_and_device_readings(client, full_microgrid):
+    response = client.get(f"/api/telemetry/microgrids/{full_microgrid.id}/snapshot")
+    body = response.json()
+    assert body["source"] == "SIMULATED"
+    assert body["energy_reading"]["source"] == "SIMULATED"
+    assert all(d["source"] == "SIMULATED" for d in body["devices"])

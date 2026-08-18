@@ -1,25 +1,33 @@
-import { useState } from "react";
+import { NavLink, Route, HashRouter as Router, Routes } from "react-router-dom";
 import { ConnectivityPage } from "./ConnectivityPage";
 import { VisualizationPage } from "./VisualizationPage";
-import { Button } from "@/components/ui";
 
-type Tab = "connectivity" | "visualization";
-
+/**
+ * HashRouter is used (rather than BrowserRouter) so the app works when
+ * served as static files without server-side rewrite rules configured
+ * for client-side routes (e.g. the Docker Compose `serve -s dist` setup).
+ */
 export function App() {
-  const [tab, setTab] = useState<Tab>("connectivity");
-
   return (
-    <div>
-      <div style={{ display: "flex", gap: 8, padding: "16px 24px 0", justifyContent: "center" }}>
-        <Button variant={tab === "connectivity" ? "primary" : "ghost"} size="sm" onClick={() => setTab("connectivity")}>
+    <Router>
+      <nav style={{ display: "flex", gap: 8, padding: "16px 24px 0", justifyContent: "center" }}>
+        <NavLink to="/" end className={({ isActive }) => `mgx-nav-link${isActive ? " mgx-nav-link--active" : ""}`}>
           System connectivity
-        </Button>
-        <Button variant={tab === "visualization" ? "primary" : "ghost"} size="sm" onClick={() => setTab("visualization")}>
+        </NavLink>
+        <NavLink
+          to="/visualization"
+          className={({ isActive }) => `mgx-nav-link${isActive ? " mgx-nav-link--active" : ""}`}
+        >
           3D Visualization
-        </Button>
-      </div>
-      {tab === "connectivity" ? <ConnectivityPage /> : <VisualizationPage />}
-    </div>
+        </NavLink>
+      </nav>
+      <Routes>
+        <Route path="/" element={<ConnectivityPage />} />
+        <Route path="/visualization" element={<VisualizationPage />} />
+        <Route path="/3d" element={<VisualizationPage />} />
+      </Routes>
+    </Router>
   );
 }
+
 

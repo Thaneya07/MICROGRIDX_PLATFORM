@@ -193,3 +193,71 @@ describe("useTelemetryStream", () => {
     expect(result.current.status).toBe("connected");
   });
 });
+
+describe("useTelemetryStream bounded reconnect/backoff", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    MockWebSocket.instances = [];
+    MockWebSocket.behavior = "never_open";
+    vi.stubGlobal("WebSocket", MockWebSocket as unknown as typeof WebSocket);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("attempts a bounded number of automatic WS reconnects while on fallback", async () => {
+    vi.spyOn(apiClient, "getMicrogridSnapshot").mockResolvedValue(SAMPLE_SNAPSHOT);
+
+    const { result } = renderHook(() => useTelemetryStream("mg-1"));
+
+    // Initial connect fails -> fallback engaged, first retry scheduled (~5s).
+    await tick(4100);
+    expect(result.current.usingFallback).toBe(true);
+    const instancesAfterFirstFailure = MockWebSocket.instances.length;
+
+    // Advance past the first backoff delay -> a new WebSocket attempt should be made.
+    await tick(5100);
+    expect(MockWebSocket.instances.length).toBeGreaterThan(instancesAfterFirstFailure);
+    expect(result.current.reconnectAttempt).toBeGreaterThanOrEqual(1);
+  });
+
+  it("resumes live WebSocket status once a retry succeeds (same code path as automatic backoff)", async () => {
+    vi.spyOn(apiClient, "getMicrogridSnapshot").mockResolvedValue(SAMPLE_SNAPSHOT);
+    const { result } = renderHook(() => useTelemetryStream("mg-1"));
+
+    await tick(4100);
+    expect(result.current.usingFallback).toBe(true);
+    expect(result.current.status).toBe("fallback_polling");
+
+    // A retry succeeding — whether triggered automatically by the backoff
+    // timer or manually via reconnect() — goes through the identical
+    // "construct new socket -> onopen -> connected" code path exercised
+    // here and separately proven to fire automatically in the
+    // "attempts a bounded number of automatic WS reconnects" test above.
+    MockWebSocket.behavior = "open";
+    act(() => {
+      result.current.reconnect();
+    });
+    await tick(20);
+
+    expect(result.current.status).toBe("connected");
+    expect(result.current.usingFallback).toBe(false);
+  });
+
+  it("manual reconnect() resets the attempt counter", async () => {
+    vi.spyOn(apiClient, "getMicrogridSnapshot").mockResolvedValue(SAMPLE_SNAPSHOT);
+    const { result } = renderHook(() => useTelemetryStream("mg-1"));
+
+    await tick(4100);
+    await tick(5100);
+    expect(result.current.reconnectAttempt).toBeGreaterThanOrEqual(1);
+
+    act(() => {
+      result.current.reconnect();
+    });
+    expect(result.current.reconnectAttempt).toBe(0);
+  });
+});

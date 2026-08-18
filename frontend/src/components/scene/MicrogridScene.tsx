@@ -1,13 +1,23 @@
 import { Canvas } from "@react-three/fiber";
 import { Environment, Grid, OrbitControls } from "@react-three/drei";
-import type { MicrogridSnapshot } from "@/types/telemetry";
+import type { LoadSnapshot, MicrogridSnapshot } from "@/types/telemetry";
 import { SolarArray } from "./SolarArray";
 import { BatteryUnit } from "./BatteryUnit";
 import { GridConnection } from "./GridConnection";
 import { LoadControllerNode } from "./LoadControllerNode";
 import { SensorMarker } from "./SensorMarker";
 import { EnergyFlowLine } from "./EnergyFlowLine";
+import { SiteBoundary } from "./SiteBoundary";
 import { devicesByType, isDeviceOnline } from "./sceneMapping";
+import {
+  buildBatteryDetails,
+  buildGridDetails,
+  buildLoadControllerDetails,
+  buildLoadDetails,
+  buildSensorDetails,
+  buildSolarDetails,
+} from "./componentDetails";
+import type { SelectedComponent } from "./selection";
 import {
   REFERENCE_MAX_CONSUMPTION_W,
   REFERENCE_MAX_GRID_W,
@@ -17,6 +27,7 @@ import {
 
 export interface MicrogridSceneProps {
   snapshot: MicrogridSnapshot;
+  onSelect?: (component: SelectedComponent) => void;
 }
 
 const HUB_POSITION: [number, number, number] = [0, 0.4, 0];
@@ -26,7 +37,7 @@ const GRID_POSITION: [number, number, number] = [-1.8, 0, 2.2];
 const LOAD_CONTROLLER_POSITION: [number, number, number] = [1.8, 0.35, -1.6];
 
 /** Renders the MicrogridX physical energy system as an interactive 3D scene, driven entirely by a MicrogridSnapshot. */
-export function MicrogridScene({ snapshot }: MicrogridSceneProps) {
+export function MicrogridScene({ snapshot, onSelect }: MicrogridSceneProps) {
   const reading = snapshot.energy_reading;
   const solarDevice = devicesByType(snapshot, "SOLAR_INVERTER")[0];
   const batteryDevice = devicesByType(snapshot, "BATTERY")[0];
@@ -39,6 +50,8 @@ export function MicrogridScene({ snapshot }: MicrogridSceneProps) {
   const gridImportW = reading?.grid_import_w ?? 0;
   const gridExportW = reading?.grid_export_w ?? 0;
   const batteryPowerW = reading?.battery_power_w ?? 0;
+
+  const select = (component: SelectedComponent) => onSelect?.(component);
 
   return (
     <Canvas shadows camera={{ position: [6, 5, 7], fov: 42 }} dpr={[1, 1.5]}>
@@ -57,27 +70,42 @@ export function MicrogridScene({ snapshot }: MicrogridSceneProps) {
         fadeDistance={20}
         fadeStrength={1}
       />
+      <SiteBoundary size={6} />
 
-      <SolarArray position={SOLAR_POSITION} generationW={generationW} online={isDeviceOnline(solarDevice)} />
+      <SolarArray
+        position={SOLAR_POSITION}
+        generationW={generationW}
+        online={isDeviceOnline(solarDevice)}
+        onSelect={() => select(buildSolarDetails(snapshot, solarDevice))}
+      />
       <BatteryUnit
         position={BATTERY_POSITION}
         socPercent={reading?.battery_soc_percent ?? null}
         powerW={reading?.battery_power_w ?? null}
         online={isDeviceOnline(batteryDevice)}
+        onSelect={() => select(buildBatteryDetails(snapshot, batteryDevice))}
       />
       <GridConnection
         position={GRID_POSITION}
         gridImportW={gridImportW}
         gridExportW={gridExportW}
         online={isDeviceOnline(meterDevice)}
+        onSelect={() => select(buildGridDetails(snapshot, meterDevice))}
       />
       <LoadControllerNode
         position={LOAD_CONTROLLER_POSITION}
         loads={snapshot.loads}
         online={isDeviceOnline(loadControllerDevice)}
+        onSelectController={() => select(buildLoadControllerDetails(snapshot.loads, loadControllerDevice))}
+        onSelectLoad={(load: LoadSnapshot) => select(buildLoadDetails(load))}
       />
       {sensorDevices.map((sensor, i) => (
-        <SensorMarker key={sensor.device_id} position={[-0.5 + i * 0.4, 0.15, 1.0]} online={isDeviceOnline(sensor)} />
+        <SensorMarker
+          key={sensor.device_id}
+          position={[-0.5 + i * 0.4, 0.15, 1.0]}
+          online={isDeviceOnline(sensor)}
+          onSelect={() => select(buildSensorDetails(sensor))}
+        />
       ))}
 
       <EnergyFlowLine
@@ -109,7 +137,7 @@ export function MicrogridScene({ snapshot }: MicrogridSceneProps) {
         color="#f5a623"
       />
 
-      <OrbitControls enablePan={false} minDistance={4} maxDistance={14} maxPolarAngle={Math.PI / 2.1} />
+      <OrbitControls enablePan minDistance={4} maxDistance={14} maxPolarAngle={Math.PI / 2.1} />
     </Canvas>
   );
 }
