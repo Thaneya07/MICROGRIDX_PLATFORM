@@ -167,6 +167,75 @@ npm run test     # Vitest
 npm run build    # type-checks (tsc -b) and produces a production build
 ```
 
+## Phase 2, Step 7 (decision engine / optimization)
+
+A decision-SUPPORT layer that turns telemetry + analytics + forecasts into
+optimized battery/load recommendations, integrated into the Step 6 3D
+visualization as a labeled `DecisionPanel`.
+
+```
+EnergyReading (current) + Forecast (Step 5)      Load (priority/status)
+        |                                               |
+        v                                               v
+   OptimizationInputs  ------------------------------->  |
+        |                                                |
+        v                                                |
+   Battery dispatch LP (scipy.optimize.linprog, HiGHS)    |
+        |                                                |
+        v                                                v
+   Constraint verification  ---->  Rule-based load recommendations
+        |
+        v
+   Decision (persisted) ----> DecisionPanel (3D visualization sidebar)
+```
+
+**CRITICAL SAFETY BOUNDARY: MicroGridX currently provides decision
+support and optimization recommendations; it does not automatically
+actuate physical hardware.** No code path in this repository sends a
+command to any device. `POST /api/decision/{id}/approve` only records a
+human approval/rejection status in the database — it never triggers
+hardware action.
+
+- **Algorithm**: a small Linear Program (`scipy.optimize.linprog`,
+  HiGHS backend — already a transitive dependency via scikit-learn, no
+  new package added), solving battery charge/discharge/grid-import/
+  grid-export for each step of a configurable horizon (default 8 steps ×
+  30 min). Chosen over MILP (round-trip efficiency losses in the
+  objective make simultaneous charge+discharge strictly wasteful, so the
+  LP relaxation naturally avoids it without integer variables), QP (no
+  quadratic terms exist in the objective), and MPC-as-a-framework (this
+  *is* a receding-horizon re-solve already — see
+  `app/services/decision/optimizer.py` docstring for the full rationale).
+- **Objective**: minimize grid import + a small grid-export penalty + a
+  linearized peak-shaving term + a battery-throughput (degradation) proxy.
+  **No monetary/tariff term** — this project has no tariff data source,
+  so economic optimization is explicitly reported as
+  `"unavailable: no tariff data configured"` in every decision's
+  provenance rather than fabricated.
+- **Battery constraints**: capacity, min/max SOC, max charge/discharge
+  power, and round-trip efficiencies are explicit configuration defaults
+  (`DECISION_BATTERY_*` settings) — documented as such, since the current
+  device/telemetry model does not report real battery specs from
+  hardware.
+- **Load recommendations**: rule-based (DEFER lowest-priority controllable
+  loads under grid-import pressure, RUN_NOW controllable-off loads when
+  there's forecasted solar surplus), layered on top of the LP result — the
+  Load model has no continuous power variable suitable for the LP itself.
+- **Fallback**: if no trained forecast model exists (or SOC is unknown, or
+  the LP is infeasible), the optimizer is never invoked — a
+  `SAFE_FALLBACK` decision is persisted with an explicit reason, never a
+  silently-returned "optimal" result.
+- `POST /api/decision/microgrids/{id}/optimize`,
+  `GET /api/decision/microgrids/{id}/latest`,
+  `GET /api/decision/microgrids/{id}/history`,
+  `POST /api/decision/{decision_id}/approve`.
+- `decisions` table: the optimization *output* (recommendation, expected
+  outcomes, constraint checks, explanation, provenance), not duplicated
+  telemetry.
+
+Not yet implemented: authentication, and (deliberately, per this step's
+scope) any actual hardware control.
+
 ## Phase 2, Step 6 (3D energy system visualization)
 
 An interactive 3D representation of a microgrid's physical energy system

@@ -3,6 +3,7 @@ import type { ApiErrorBody, DatabaseHealthResponse, HealthResponse } from "@/typ
 import type { MicrogridSnapshot } from "@/types/telemetry";
 import type { ForecastResponse, ForecastTarget } from "@/types/forecast";
 import type { EnergySummaryResponse } from "@/types/analytics";
+import type { Decision } from "@/types/decision";
 
 export class ApiError extends Error {
   status: number;
@@ -70,6 +71,17 @@ export const apiClient = {
     const query = params.toString() ? `?${params.toString()}` : "";
     return request<EnergySummaryResponse>(`/api/energy/microgrids/${microgridId}/summary${query}`);
   },
+
+  getLatestDecision: (microgridId: string) => request<Decision>(`/api/decision/microgrids/${microgridId}/latest`),
+
+  optimizeDecision: (microgridId: string) =>
+    request<Decision>(`/api/decision/microgrids/${microgridId}/optimize`, { method: "POST" }),
+
+  approveDecision: (decisionId: string, approved: boolean) =>
+    request<Decision>(`/api/decision/${decisionId}/approve`, {
+      method: "POST",
+      body: JSON.stringify({ approved }),
+    }),
 };
 
 /** WebSocket URL for the live telemetry stream, derived from API_BASE_URL (http(s) -> ws(s)). */

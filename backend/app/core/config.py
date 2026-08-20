@@ -102,6 +102,40 @@ class Settings(BaseSettings):
     # Decoupled from any particular provider's data-generation cadence.
     TELEMETRY_STREAM_INTERVAL_SECONDS: float = Field(default=3.0)
 
+    # --- Decision Engine / Optimization (Step 7) ---
+    # Battery parameters. The device/telemetry model does not currently
+    # report these from hardware, so they are explicit configured defaults
+    # (documented here, not fabricated hardware specs) until a real
+    # battery management system exposes them.
+    DECISION_BATTERY_CAPACITY_WH: float = Field(default=5000.0)
+    DECISION_BATTERY_MIN_SOC_PERCENT: float = Field(default=20.0)
+    DECISION_BATTERY_MAX_SOC_PERCENT: float = Field(default=95.0)
+    DECISION_BATTERY_MAX_CHARGE_W: float = Field(default=2000.0)
+    DECISION_BATTERY_MAX_DISCHARGE_W: float = Field(default=2000.0)
+    # Round-trip losses, applied asymmetrically to charge/discharge energy.
+    # These also serve an optimization-structural purpose: they make
+    # simultaneous nonzero charge and discharge strictly wasteful in the
+    # LP's objective, so the solver naturally avoids it without needing
+    # integer/binary "exclusivity" variables (see optimizer.py docstring).
+    DECISION_BATTERY_CHARGE_EFFICIENCY: float = Field(default=0.95)
+    DECISION_BATTERY_DISCHARGE_EFFICIENCY: float = Field(default=0.95)
+
+    # Optimization horizon. Matches the interval_minutes granularity the
+    # forecasting service already supports (see app/services/forecasting).
+    DECISION_HORIZON_STEPS: int = Field(default=8)
+    DECISION_INTERVAL_MINUTES: int = Field(default=30)
+
+    # Objective weights — all configurable, all documented in
+    # app/services/decision/objective.py. No monetary/tariff term exists:
+    # this project has no tariff data source, so economic optimization is
+    # explicitly unavailable rather than fabricated.
+    DECISION_WEIGHT_GRID_IMPORT: float = Field(default=1.0)
+    DECISION_WEIGHT_GRID_EXPORT: float = Field(default=0.1)
+    DECISION_WEIGHT_PEAK: float = Field(default=0.5)
+    DECISION_WEIGHT_DEGRADATION: float = Field(default=0.05)
+
+    DECISION_MIN_TELEMETRY_READINGS: int = Field(default=1)
+
     # --- CORS ---
     # Comma-separated list of allowed origins. No wildcard default is used
     # so that a misconfigured deployment fails closed rather than open.

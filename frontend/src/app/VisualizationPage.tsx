@@ -15,12 +15,14 @@ import { MicrogridScene } from "@/components/scene/MicrogridScene";
 import { DataSourceBadge } from "@/components/scene/DataSourceBadge";
 import { ForecastPanel } from "@/components/scene/ForecastPanel";
 import { AnalyticsOverlay } from "@/components/scene/AnalyticsOverlay";
+import { DecisionPanel } from "@/components/scene/DecisionPanel";
 import { SceneLegend } from "@/components/scene/SceneLegend";
 import { ComponentInfoPanel } from "@/components/scene/ComponentInfoPanel";
 import type { SelectedComponent } from "@/components/scene/selection";
 import { useTelemetryStream } from "@/hooks/useTelemetryStream";
 import { useForecast } from "@/hooks/useForecast";
 import { useEnergySummary } from "@/hooks/useEnergySummary";
+import { useDecision } from "@/hooks/useDecision";
 import { getBatteryFlowState, getGridFlowState, hasLiveData } from "@/components/scene/sceneMapping";
 import "./VisualizationPage.css";
 
@@ -60,6 +62,7 @@ export function VisualizationPage() {
   const demandForecast = useForecast(activeMicrogridId, "DEMAND");
   const solarForecast = useForecast(activeMicrogridId, "SOLAR_GENERATION");
   const energySummary = useEnergySummary(activeMicrogridId);
+  const decisionState = useDecision(activeMicrogridId);
 
   const meta = STATUS_META[stream.status] ?? STATUS_META.idle;
 
@@ -172,6 +175,7 @@ export function VisualizationPage() {
                 </div>
 
                 <ComponentInfoPanel selected={selectedComponent} />
+                <DecisionPanel state={decisionState} />
                 <SceneLegend />
                 <AnalyticsOverlay state={energySummary} />
                 <ForecastPanel title="Demand forecast (next 12h)" state={demandForecast} />
