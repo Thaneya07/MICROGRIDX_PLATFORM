@@ -37,6 +37,7 @@ from app.services.decision.inputs import gather_optimization_inputs
 from app.services.decision.objective import get_objective_weights
 from app.services.decision.optimizer import solve_dispatch
 from app.services.decision.recommendations import build_explanation, build_load_recommendations
+from app.services.decision.mode import classify_operating_mode
 from app.services.telemetry.base import TelemetryProvider
 
 settings = get_settings()
@@ -105,6 +106,15 @@ class DecisionService:
         )
         reason = self._short_reason(evaluation)
 
+        mode_classification = classify_operating_mode(
+            evaluation=evaluation,
+            load_recommendations=load_recs,
+            current_soc_percent=current_soc_percent,
+            min_soc_percent=constraints.min_soc_percent,
+            emergency_buffer_percent=settings.DECISION_EMERGENCY_SOC_BUFFER_PERCENT,
+            fallback_used=False,
+        )
+
         actual_horizon_end = datetime.fromtimestamp(
             inputs.horizon_start.timestamp() + n * inputs.interval_minutes * 60, tz=timezone.utc
         )
@@ -115,6 +125,8 @@ class DecisionService:
             optimization_status=OptimizationStatus.OPTIMAL
             if evaluation.all_constraints_satisfied
             else OptimizationStatus.ERROR,
+            operating_mode=mode_classification.mode,
+            operating_mode_reason=mode_classification.reason,
             horizon_start=inputs.horizon_start,
             horizon_end=actual_horizon_end,
             interval_minutes=inputs.interval_minutes,
@@ -212,10 +224,20 @@ class DecisionService:
     # --- internal helpers ---
 
     def _persist_fallback(self, inputs, reason: str) -> Decision:
+        mode_classification = classify_operating_mode(
+            evaluation=None,
+            load_recommendations=[],
+            current_soc_percent=inputs.current_battery_soc_percent,
+            min_soc_percent=get_battery_constraints().min_soc_percent,
+            emergency_buffer_percent=settings.DECISION_EMERGENCY_SOC_BUFFER_PERCENT,
+            fallback_used=True,
+        )
         row = Decision(
             microgrid_id=inputs.microgrid_id,
             source=inputs.source,
             optimization_status=OptimizationStatus.SAFE_FALLBACK,
+            operating_mode=mode_classification.mode,
+            operating_mode_reason=mode_classification.reason,
             horizon_start=inputs.horizon_start,
             horizon_end=inputs.horizon_end,
             interval_minutes=inputs.interval_minutes,

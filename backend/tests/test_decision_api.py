@@ -84,6 +84,29 @@ def test_optimize_endpoint_returns_full_decision_contract(client, microgrid_read
     assert isinstance(body["load_recommendations"], list)
     assert isinstance(body["constraints_checked"], list)
     assert body["explanation"]
+    assert body["operating_mode"] in ("NORMAL_MODE", "ECO_MODE", "EMERGENCY_MODE")
+    assert body["operating_mode_reason"]
+
+
+def test_optimize_endpoint_fallback_yields_emergency_mode(client):
+    db = SessionLocal()
+    mg = Microgrid(name=f"mode-fallback-{uuid.uuid4()}", location="X", status=MicrogridStatus.ACTIVE)
+    db.add(mg)
+    db.commit()
+    db.refresh(mg)
+    mg_id = mg.id
+    db.close()
+
+    response = client.post(f"/api/decision/microgrids/{mg_id}/optimize")
+    body = response.json()
+    assert body["operating_mode"] == "EMERGENCY_MODE"
+    assert "fallback" in body["operating_mode_reason"].lower()
+
+    db = SessionLocal()
+    db.query(Decision).filter(Decision.microgrid_id == mg_id).delete()
+    db.query(Microgrid).filter(Microgrid.id == mg_id).delete()
+    db.commit()
+    db.close()
 
 
 def test_optimize_endpoint_404_for_unknown_microgrid(client):

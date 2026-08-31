@@ -83,3 +83,25 @@ describe("getTelemetryStreamUrl", () => {
     expect(url).toContain("interval_seconds=5");
   });
 });
+
+describe("apiClient microgrid/demo additions", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("listMicrogrids calls the correct endpoint", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => [] });
+    vi.stubGlobal("fetch", fetchMock);
+    await apiClient.listMicrogrids();
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/api/microgrids"), expect.any(Object));
+  });
+
+  it("seedDemoMicrogrid POSTs to the demo seed endpoint", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+    vi.stubGlobal("fetch", fetchMock);
+    await apiClient.seedDemoMicrogrid();
+    const [url, options] = fetchMock.mock.calls[0];
+    expect(url).toContain("/api/demo/seed");
+    expect(options.method).toBe("POST");
+  });
+});

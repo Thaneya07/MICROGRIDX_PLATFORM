@@ -8,6 +8,7 @@ from typing import Dict, List, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.decision import ApprovalStatus, BatteryAction, OptimizationStatus
+from app.services.decision_engine import OperatingMode
 from app.models.telemetry import TelemetrySource
 
 
@@ -33,6 +34,8 @@ class DecisionResponse(BaseModel):
     created_at: datetime
     source: TelemetrySource
     optimization_status: OptimizationStatus
+    operating_mode: OperatingMode
+    operating_mode_reason: str
 
     horizon_start: datetime
     horizon_end: datetime

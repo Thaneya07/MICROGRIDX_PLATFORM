@@ -10,6 +10,8 @@ const SAMPLE_DECISION: Decision = {
   created_at: "2026-06-15T12:00:00Z",
   source: "SIMULATED",
   optimization_status: "OPTIMAL",
+  operating_mode: "NORMAL_MODE",
+  operating_mode_reason: "No safety constraints are near their limits.",
   horizon_start: "2026-06-15T12:00:00Z",
   horizon_end: "2026-06-15T16:00:00Z",
   interval_minutes: 30,

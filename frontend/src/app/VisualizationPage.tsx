@@ -16,6 +16,7 @@ import { DataSourceBadge } from "@/components/scene/DataSourceBadge";
 import { ForecastPanel } from "@/components/scene/ForecastPanel";
 import { AnalyticsOverlay } from "@/components/scene/AnalyticsOverlay";
 import { DecisionPanel } from "@/components/scene/DecisionPanel";
+import { OperatingModeBanner } from "@/components/scene/OperatingModeBanner";
 import { SceneLegend } from "@/components/scene/SceneLegend";
 import { ComponentInfoPanel } from "@/components/scene/ComponentInfoPanel";
 import type { SelectedComponent } from "@/components/scene/selection";
@@ -23,6 +24,7 @@ import { useTelemetryStream } from "@/hooks/useTelemetryStream";
 import { useForecast } from "@/hooks/useForecast";
 import { useEnergySummary } from "@/hooks/useEnergySummary";
 import { useDecision } from "@/hooks/useDecision";
+import { useMicrogrids } from "@/hooks/useMicrogrids";
 import { getBatteryFlowState, getGridFlowState, hasLiveData } from "@/components/scene/sceneMapping";
 import "./VisualizationPage.css";
 
@@ -54,10 +56,12 @@ const STATUS_META: Record<
 };
 
 export function VisualizationPage() {
-  const [microgridIdInput, setMicrogridIdInput] = useState("");
   const [activeMicrogridId, setActiveMicrogridId] = useState<string | null>(null);
   const [selectedComponent, setSelectedComponent] = useState<SelectedComponent | null>(null);
+  const [showAdvancedInput, setShowAdvancedInput] = useState(false);
+  const [microgridIdInput, setMicrogridIdInput] = useState("");
 
+  const microgridsState = useMicrogrids();
   const stream = useTelemetryStream(activeMicrogridId);
   const demandForecast = useForecast(activeMicrogridId, "DEMAND");
   const solarForecast = useForecast(activeMicrogridId, "SOLAR_GENERATION");
@@ -66,36 +70,83 @@ export function VisualizationPage() {
 
   const meta = STATUS_META[stream.status] ?? STATUS_META.idle;
 
+  const selectMicrogrid = (id: string | null) => {
+    setSelectedComponent(null);
+    setActiveMicrogridId(id);
+  };
+
+  const handleLoadDemo = async () => {
+    const microgrid = await microgridsState.seedDemo();
+    if (microgrid) {
+      selectMicrogrid(microgrid.id);
+    }
+  };
+
   return (
     <div className="mgx-page mgx-viz-page">
       <PageHeader
-        eyebrow="Phase 2, Step 6"
+        eyebrow="Phase 2, Step 7"
         title="Interactive 3D Microgrid Visualization"
-        description="An interactive 3D representation of the microgrid's physical energy system, connected to live (or simulated) telemetry and forecasting. This is an observation view — it does not control any device, and is not a full digital twin."
+        description="Live/simulated telemetry, energy analytics, demand and solar forecasts, and Decision Engine recommendations for a microgrid's physical energy system. This is an observation and decision-support view — it does not control any device, and is not a full digital twin."
       />
 
       <Card className="mgx-viz-controls">
-        <Input
-          label="Microgrid ID"
-          placeholder="Paste a microgrid UUID (see README for how to create one)"
-          value={microgridIdInput}
-          onChange={(e) => setMicrogridIdInput(e.target.value)}
-        />
-        <Button
-          onClick={() => {
-            setSelectedComponent(null);
-            setActiveMicrogridId(microgridIdInput.trim() || null);
-          }}
-          disabled={!microgridIdInput.trim()}
-        >
-          Load scene
-        </Button>
+        <div className="mgx-viz-controls-row">
+          {microgridsState.microgrids.length > 0 && (
+            <div className="mgx-viz-select-group">
+              <label className="mgx-viz-select-label" htmlFor="microgrid-select">
+                Choose a microgrid
+              </label>
+              <select
+                id="microgrid-select"
+                className="mgx-viz-select"
+                value={activeMicrogridId ?? ""}
+                onChange={(e) => selectMicrogrid(e.target.value || null)}
+              >
+                <option value="" disabled>
+                  Select a microgrid...
+                </option>
+                {microgridsState.microgrids.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name} ({m.location})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          <Button onClick={handleLoadDemo} disabled={microgridsState.seeding} variant="primary">
+            {microgridsState.seeding ? "Loading demo..." : "Load demo microgrid"}
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setShowAdvancedInput((v) => !v)}>
+            {showAdvancedInput ? "Hide" : "Advanced: enter ID manually"}
+          </Button>
+        </div>
+
+        {showAdvancedInput && (
+          <div className="mgx-viz-controls-row">
+            <Input
+              label="Microgrid ID"
+              placeholder="Paste an existing microgrid UUID"
+              value={microgridIdInput}
+              onChange={(e) => setMicrogridIdInput(e.target.value)}
+            />
+            <Button
+              variant="secondary"
+              onClick={() => selectMicrogrid(microgridIdInput.trim() || null)}
+              disabled={!microgridIdInput.trim()}
+            >
+              Load
+            </Button>
+          </div>
+        )}
+
+        {microgridsState.errorMessage && <p className="mgx-viz-controls-error">{microgridsState.errorMessage}</p>}
       </Card>
 
       {!activeMicrogridId && (
         <EmptyState
           title="No microgrid selected"
-          description="Enter a microgrid ID above and click 'Load scene' to visualize its energy system."
+          description="Click 'Load demo microgrid' for a ready-made example (SIMULATED data), choose an existing microgrid above, or enter an ID manually."
         />
       )}
 
@@ -126,6 +177,11 @@ export function VisualizationPage() {
               Updated {new Date(stream.snapshot.server_time).toLocaleTimeString()}
             </span>
           </div>
+
+          <OperatingModeBanner
+            mode={decisionState.decision?.operating_mode ?? null}
+            reason={decisionState.decision?.operating_mode_reason ?? null}
+          />
 
           {!hasLiveData(stream.snapshot) ? (
             <EmptyState

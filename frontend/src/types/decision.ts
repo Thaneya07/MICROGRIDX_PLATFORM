@@ -3,6 +3,7 @@
 export type OptimizationStatus = "OPTIMAL" | "INFEASIBLE" | "SAFE_FALLBACK" | "ERROR";
 export type BatteryAction = "CHARGE" | "DISCHARGE" | "IDLE";
 export type ApprovalStatus = "PENDING" | "APPROVED" | "REJECTED";
+export type OperatingMode = "NORMAL_MODE" | "ECO_MODE" | "EMERGENCY_MODE";
 
 export interface LoadRecommendation {
   load_id: string;
@@ -24,6 +25,8 @@ export interface Decision {
   created_at: string;
   source: "SIMULATED" | "HARDWARE";
   optimization_status: OptimizationStatus;
+  operating_mode: OperatingMode;
+  operating_mode_reason: string;
 
   horizon_start: string;
   horizon_end: string;

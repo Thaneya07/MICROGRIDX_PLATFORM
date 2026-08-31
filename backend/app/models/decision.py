@@ -21,6 +21,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base, UUIDPrimaryKeyMixin
 from app.models.telemetry import TelemetrySource
+from app.services.decision_engine import OperatingMode
 
 
 class OptimizationStatus(str, enum.Enum):
@@ -60,6 +61,10 @@ class Decision(UUIDPrimaryKeyMixin, Base):
     optimization_status: Mapped[OptimizationStatus] = mapped_column(
         Enum(OptimizationStatus, name="optimization_status"), nullable=False
     )
+    operating_mode: Mapped[OperatingMode] = mapped_column(
+        Enum(OperatingMode, name="operating_mode"), nullable=False
+    )
+    operating_mode_reason: Mapped[str] = mapped_column(String(2000), nullable=False)
 
     horizon_start: Mapped["DateTime"] = mapped_column(DateTime(timezone=True), nullable=False)
     horizon_end: Mapped["DateTime"] = mapped_column(DateTime(timezone=True), nullable=False)

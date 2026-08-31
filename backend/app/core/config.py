@@ -136,6 +136,12 @@ class Settings(BaseSettings):
 
     DECISION_MIN_TELEMETRY_READINGS: int = Field(default=1)
 
+    # Operating mode classification (fulfills the Phase 1 OperatingMode
+    # contract in app/services/decision_engine.py). Rule-based, layered on
+    # top of the optimizer's output — see app/services/decision/mode.py
+    # for the full documented logic.
+    DECISION_EMERGENCY_SOC_BUFFER_PERCENT: float = Field(default=5.0)
+
     # --- CORS ---
     # Comma-separated list of allowed origins. No wildcard default is used
     # so that a misconfigured deployment fails closed rather than open.

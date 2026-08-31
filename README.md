@@ -167,6 +167,54 @@ npm run test     # Vitest
 npm run build    # type-checks (tsc -b) and produces a production build
 ```
 
+## Phase 2, Step 7b (operating mode + guided demo experience)
+
+Two additive gaps closed on top of Step 7, making the full workflow
+demonstrable end-to-end from the frontend without any manual database
+work.
+
+**Operating mode.** The Phase 1 `OperatingMode` contract
+(`app/services/decision_engine.py` — `NORMAL_MODE` / `ECO_MODE` /
+`EMERGENCY_MODE`) was defined but never implemented. `app/services/
+decision/mode.py` now classifies it deterministically from the same
+optimization result every `Decision` already carries — no new data
+source, no separate model:
+
+1. `EMERGENCY_MODE` if the optimizer fell back or a safety constraint was
+   violated (the recommendation itself can't be trusted).
+2. `EMERGENCY_MODE` if current battery SOC is at or below the configured
+   minimum plus a small buffer (`DECISION_EMERGENCY_SOC_BUFFER_PERCENT`).
+3. `ECO_MODE` if any load is deferred, or the battery is discharging.
+4. `NORMAL_MODE` otherwise.
+
+Persisted on every `Decision` row (`operating_mode`,
+`operating_mode_reason`, additive migration) and shown as the single most
+prominent element on the visualization page — an `OperatingModeBanner`
+directly under the connection status bar, always labeled `RECOMMENDED`
+so it's never confused with an actual automatic mode switch.
+
+**Guided demo experience.** `GET /api/microgrids` (read-only listing) and
+`POST /api/demo/seed` (explicit, idempotent, documented here — never
+triggered automatically) replace the "you must already know a microgrid
+UUID" requirement. Seeding creates one fixed, clearly-named microgrid
+(`"MicroGridX Demo Site"`, location `"Demo (simulated data)"`) with 5
+devices, 4 loads of varying priority/controllability, and 10 days of
+SIMULATED telemetry backfilled through the existing, unmodified
+`TelemetryService`/`SimulationTelemetryProvider` — the seed mechanism
+does not fabricate readings itself. Calling `/api/demo/seed` again
+returns the same microgrid rather than creating a duplicate. The
+"Advanced: enter ID manually" option remains for anyone who wants to work
+with a specific microgrid directly.
+
+**Full workflow, verified end-to-end via the same APIs the frontend
+calls:** telemetry snapshot → energy analytics summary → trained demand/
+solar forecasts → Decision Engine optimization → operating mode
+classification → battery/load recommendations, all keyed by the same
+selected microgrid ID throughout (`ForecastPanel`, `AnalyticsOverlay`,
+`DecisionPanel`, `OperatingModeBanner`, and `MicrogridScene` all receive
+`activeMicrogridId`/the live snapshot from the same page-level state — no
+component fetches a different microgrid's data).
+
 ## Phase 2, Step 7 (decision engine / optimization)
 
 A decision-SUPPORT layer that turns telemetry + analytics + forecasts into

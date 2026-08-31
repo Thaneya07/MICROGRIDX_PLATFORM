@@ -4,6 +4,7 @@ import type { MicrogridSnapshot } from "@/types/telemetry";
 import type { ForecastResponse, ForecastTarget } from "@/types/forecast";
 import type { EnergySummaryResponse } from "@/types/analytics";
 import type { Decision } from "@/types/decision";
+import type { DemoSeedResponse, MicrogridSummary } from "@/types/microgrid";
 
 export class ApiError extends Error {
   status: number;
@@ -82,6 +83,10 @@ export const apiClient = {
       method: "POST",
       body: JSON.stringify({ approved }),
     }),
+
+  listMicrogrids: () => request<MicrogridSummary[]>("/api/microgrids"),
+
+  seedDemoMicrogrid: () => request<DemoSeedResponse>("/api/demo/seed", { method: "POST" }),
 };
 
 /** WebSocket URL for the live telemetry stream, derived from API_BASE_URL (http(s) -> ws(s)). */

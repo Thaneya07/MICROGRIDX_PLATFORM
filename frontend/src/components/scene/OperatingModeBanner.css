@@ -1,0 +1,64 @@
+.mgx-mode-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.mgx-mode-banner-tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.mgx-mode-banner-label {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 0.02em;
+}
+
+.mgx-mode-banner-reason {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  flex: 1;
+  min-width: 200px;
+}
+
+.mgx-mode-banner--normal {
+  background: var(--color-online-soft);
+  border-color: rgba(45, 212, 191, 0.4);
+}
+.mgx-mode-banner--normal .mgx-mode-banner-label {
+  color: var(--color-online);
+}
+
+.mgx-mode-banner--eco {
+  background: var(--color-accent-soft);
+  border-color: rgba(245, 166, 35, 0.4);
+}
+.mgx-mode-banner--eco .mgx-mode-banner-label {
+  color: var(--color-accent-strong);
+}
+
+.mgx-mode-banner--emergency {
+  background: var(--color-danger-soft);
+  border-color: rgba(229, 72, 77, 0.5);
+}
+.mgx-mode-banner--emergency .mgx-mode-banner-label {
+  color: var(--color-danger);
+}
+
+.mgx-mode-banner--unknown {
+  background: var(--color-surface);
+}
+.mgx-mode-banner--unknown .mgx-mode-banner-label {
+  color: var(--color-text-faint);
+}
