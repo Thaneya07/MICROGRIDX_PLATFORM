@@ -167,6 +167,38 @@ npm run test     # Vitest
 npm run build    # type-checks (tsc -b) and produces a production build
 ```
 
+## Phase 2, Step 7c (decision lifecycle: approval + history)
+
+Closes the gap between "see one recommendation" and "understand how
+recommendations evolve and were approved over time" — entirely on the
+frontend, reusing backend endpoints (`GET .../latest`, `GET .../history`,
+`POST .../approve`) that already existed from Step 7.
+
+```
+Current Energy State → Forecast → Optimization → Recommendation
+    → Explanation → Approval → Decision History
+```
+
+- **`useDecisionHistory`** (new hook): fetches
+  `GET /api/decision/microgrids/{id}/history`, keyed by the same
+  `activeMicrogridId` as every other panel, plus a `refreshSignal` the
+  page derives from the latest decision's `id` + `approval_status` — so
+  the history list updates automatically right after a new optimization
+  runs or an approval is recorded, with no polling and no prop-drilling
+  into `useDecision`.
+- **`DecisionHistoryPanel`** (new component): a compact, scrollable list
+  — one row per past decision showing time, operating mode, battery
+  action, and approval status side by side for quick comparison. Clicking
+  a row expands it in place to show the full explanation, the mode
+  reason, and per-load recommendations — the same underlying data
+  `DecisionPanel` shows for the live decision, just for a historical one.
+  Every row/expansion carries the same `safety_note` — history is a
+  record of past recommendations, never of hardware actions.
+- Rendered directly under `DecisionPanel` in `VisualizationPage`'s
+  sidebar; no existing component (`DecisionPanel`, `ForecastPanel`,
+  `AnalyticsOverlay`, `OperatingModeBanner`, `MicrogridScene`) was
+  modified.
+
 ## Phase 2, Step 7b (operating mode + guided demo experience)
 
 Two additive gaps closed on top of Step 7, making the full workflow

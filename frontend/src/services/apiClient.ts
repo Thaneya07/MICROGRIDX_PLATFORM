@@ -84,6 +84,9 @@ export const apiClient = {
       body: JSON.stringify({ approved }),
     }),
 
+  getDecisionHistory: (microgridId: string, limit = 8) =>
+    request<Decision[]>(`/api/decision/microgrids/${microgridId}/history?limit=${limit}`),
+
   listMicrogrids: () => request<MicrogridSummary[]>("/api/microgrids"),
 
   seedDemoMicrogrid: () => request<DemoSeedResponse>("/api/demo/seed", { method: "POST" }),
