@@ -9,6 +9,7 @@ passed in — nothing is a fixed/hard-coded assumption about the customer.
 """
 import statistics
 from dataclasses import dataclass
+from datetime import timezone
 from typing import Dict, List, Optional
 
 from app.models.telemetry import EnergyReading
@@ -43,9 +44,22 @@ class ConsumptionPatterns:
 
 
 def _group_by_hour(readings: List[EnergyReading]) -> Dict[int, List[EnergyReading]]:
+    """
+    Groups readings by hour-of-day, in UTC.
+
+    `recorded_at` is a timezone-aware datetime, but Postgres/psycopg2
+    returns it converted into whatever TimeZone the active DB session is
+    set to — which is not guaranteed to be UTC (it depends on the server's
+    `TimeZone` setting, environment variables like PGTZ, or a connection
+    string parameter). `.hour` on a naive/local-offset read is the LOCAL
+    hour in that session's timezone, not UTC, so grouping by it directly
+    silently shifts every reading into the wrong bucket whenever the
+    session timezone isn't UTC. Explicitly normalizing to UTC first makes
+    the grouping correct regardless of the session's timezone setting.
+    """
     groups: Dict[int, List[EnergyReading]] = {h: [] for h in range(24)}
     for r in readings:
-        groups[r.recorded_at.hour].append(r)
+        groups[r.recorded_at.astimezone(timezone.utc).hour].append(r)
     return groups
 
 
@@ -118,8 +132,15 @@ def compute_solar_load_correlation(readings: List[EnergyReading]) -> Optional[fl
 
 
 def compute_weekday_weekend_averages(readings: List[EnergyReading]) -> tuple[Optional[float], Optional[float]]:
-    weekday_values = [r.consumption_w for r in readings if r.recorded_at.weekday() < 5]
-    weekend_values = [r.consumption_w for r in readings if r.recorded_at.weekday() >= 5]
+    # See _group_by_hour's docstring: .weekday() on a non-UTC-normalized
+    # datetime uses the DB session's local timezone, which can flip a
+    # reading near midnight into the wrong day. Normalize to UTC first.
+    weekday_values = [
+        r.consumption_w for r in readings if r.recorded_at.astimezone(timezone.utc).weekday() < 5
+    ]
+    weekend_values = [
+        r.consumption_w for r in readings if r.recorded_at.astimezone(timezone.utc).weekday() >= 5
+    ]
     weekday_avg = round(statistics.fmean(weekday_values), 2) if weekday_values else None
     weekend_avg = round(statistics.fmean(weekend_values), 2) if weekend_values else None
     return weekday_avg, weekend_avg
