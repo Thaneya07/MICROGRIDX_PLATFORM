@@ -2,10 +2,10 @@
 Pydantic schemas for telemetry endpoints.
 """
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.models.device import DeviceStatus
 from app.models.telemetry import TelemetrySource
@@ -25,6 +25,13 @@ class EnergyReadingRead(BaseModel):
     battery_soc_percent: Optional[float]
     battery_power_w: Optional[float]
     source: TelemetrySource
+
+    @field_validator("recorded_at")
+    @classmethod
+    def normalize_recorded_at(cls, value: datetime) -> datetime:
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
 
 
 class EnergyReadingHistoryResponse(BaseModel):
@@ -46,6 +53,13 @@ class DeviceReadingRead(BaseModel):
     current_a: float
     status: DeviceStatus
     source: TelemetrySource
+
+    @field_validator("recorded_at")
+    @classmethod
+    def normalize_recorded_at(cls, value: datetime) -> datetime:
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
 
 
 class DeviceReadingHistoryResponse(BaseModel):
