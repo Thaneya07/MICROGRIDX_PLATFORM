@@ -14,7 +14,10 @@ from app.api import decision, demo, energy, forecast, health, microgrid, telemet
 from app.core.config import get_settings
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging, get_logger
-
+from app.api.battery_health import router as battery_health_router
+from app.api import ai_forecasts
+from app.api import fault_detection
+from app.api import ai_decision
 settings = get_settings()
 configure_logging(settings.LOG_LEVEL)
 logger = get_logger(__name__)
@@ -56,6 +59,10 @@ def create_app() -> FastAPI:
     app.include_router(decision.router)
     app.include_router(microgrid.router)
     app.include_router(demo.router)
+    app.include_router(battery_health_router)
+    app.include_router(ai_forecasts.router)
+    app.include_router(fault_detection.router)
+    app.include_router(ai_decision.router)
 
     return app
 

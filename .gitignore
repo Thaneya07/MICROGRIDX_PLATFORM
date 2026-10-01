@@ -39,3 +39,18 @@ docker-compose.override.yml
 # FORECAST_MODEL_DIR default, but ignored here defensively)
 *.joblib
 microgridx_forecast_models/
+# Large datasets - keep locally, do not commit
+5. Battery Data Set/
+datasets/
+
+# Trained ML model artifacts
+*.keras
+*.h5
+*.pkl
+*.joblib
+
+# Generated ML evaluation/results
+ml/**/results/
+# Generated ML evaluation/model metadata
+ml/**/models/
+ml/**/results/

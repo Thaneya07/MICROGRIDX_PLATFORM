@@ -114,6 +114,10 @@ class DeviceReading(UUIDPrimaryKeyMixin, Base):
     power_w: Mapped[float] = mapped_column(Float, nullable=False)
     voltage_v: Mapped[float] = mapped_column(Float, nullable=False)
     current_a: Mapped[float] = mapped_column(Float, nullable=False)
+
+    temperature_c: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    humidity_percent: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+
     status: Mapped[DeviceStatus] = mapped_column(
         Enum(DeviceStatus, name="device_status", create_type=False), nullable=False
     )

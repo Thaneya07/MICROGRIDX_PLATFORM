@@ -51,6 +51,10 @@ class DeviceReadingRead(BaseModel):
     power_w: float
     voltage_v: float
     current_a: float
+
+    temperature_c: Optional[float] = None
+    humidity_percent: Optional[float] = None
+
     status: DeviceStatus
     source: TelemetrySource
 
@@ -82,3 +86,22 @@ class HistoryQueryParams(BaseModel):
         if self.end <= self.start:
             raise ValueError("end must be after start")
         return self
+class HardwareTelemetryIn(BaseModel):
+    """Telemetry payload received from a physical ESP32 device."""
+
+    device_id: str = Field(default="esp32-01", min_length=1, max_length=100)
+
+    temperature_c: Optional[float] = None
+    humidity_percent: Optional[float] = None
+
+    solar_voltage_v: Optional[float] = None
+    solar_current_a: Optional[float] = None
+    solar_power_w: Optional[float] = None
+
+    battery_voltage_v: Optional[float] = None
+    battery_current_a: Optional[float] = None
+    battery_power_w: Optional[float] = None
+
+    relay_state: bool = False
+
+    recorded_at: Optional[datetime] = None

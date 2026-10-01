@@ -1,8 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
-import { apiClient } from "@/services/apiClient";
-import type { ForecastResponse, ForecastTarget } from "@/types/forecast";
+import type {
+  ForecastResponse,
+  ForecastTarget,
+} from "@/types/forecast";
 
-export type ForecastFetchStatus = "idle" | "loading" | "success" | "error" | "unavailable";
+
+export type ForecastFetchStatus =
+  | "idle"
+  | "loading"
+  | "success"
+  | "error"
+  | "unavailable";
+
 
 export interface ForecastState {
   status: ForecastFetchStatus;
@@ -10,48 +19,178 @@ export interface ForecastState {
   errorMessage: string | null;
 }
 
-/**
- * Fetches a forecast for one target, covering a window starting "now" and
- * running `horizonHours` into the future. Deliberately independent of
- * useTelemetryStream — forecast data must never be merged into the live
- * snapshot state, per the product rule that forecast and live measurements
- * are always visually and structurally distinct.
- */
-export function useForecast(microgridId: string | null, target: ForecastTarget, horizonHours = 12): ForecastState {
-  const [status, setStatus] = useState<ForecastFetchStatus>("idle");
-  const [forecast, setForecast] = useState<ForecastResponse | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const fetchForecast = useCallback(() => {
-    if (!microgridId) {
-      setStatus("idle");
-      return;
-    }
-    setStatus("loading");
-    const start = new Date();
-    const end = new Date(start.getTime() + horizonHours * 60 * 60 * 1000);
+const API_BASE =
+  import.meta.env.VITE_API_URL ??
+  "http://127.0.0.1:8000";
 
-    apiClient
-      .getForecast(microgridId, target, start.toISOString(), end.toISOString(), 30)
-      .then((data) => {
+
+export function useForecast(
+  microgridId: string | null,
+  target: ForecastTarget,
+  horizonHours = 12,
+  refreshKey = 0,
+): ForecastState {
+
+  const [status, setStatus] =
+    useState<ForecastFetchStatus>("idle");
+
+  const [forecast, setForecast] =
+    useState<ForecastResponse | null>(null);
+
+  const [errorMessage, setErrorMessage] =
+    useState<string | null>(null);
+
+
+  const fetchForecast = useCallback(
+    async () => {
+
+      if (!microgridId) {
+        setStatus("idle");
+        setForecast(null);
+        return;
+      }
+
+      setStatus("loading");
+      setErrorMessage(null);
+
+
+      try {
+
+        /*
+         * Demand dataset is 30-minute data.
+         * 12 hours = 24 points.
+         */
+        const points =
+          target === "DEMAND"
+            ? Math.max(
+                1,
+                Math.round(
+                  horizonHours * 2
+                ),
+              )
+            : /*
+               * Solar dataset is 5-minute data.
+               * 12 hours = 144 points.
+               */
+              Math.max(
+                1,
+                Math.round(
+                  horizonHours * 12
+                ),
+              );
+
+
+        const endpoint =
+          target === "DEMAND"
+            ? `${API_BASE}/api/ai-forecasts/replay/demand?points=${points}`
+            : `${API_BASE}/api/ai-forecasts/replay/solar?points=${points}`;
+
+
+        const response =
+          await fetch(endpoint);
+
+
+        if (!response.ok) {
+          const detail =
+            await response.text();
+
+          throw new Error(
+            detail ||
+              `AI forecast API returned ${response.status}`,
+          );
+        }
+
+
+        const replay =
+          await response.json();
+
+
+        const now =
+          new Date();
+
+        const firstTimestamp =
+          replay.points?.[0]?.timestamp ??
+          now.toISOString();
+
+        const lastTimestamp =
+          replay.points?.[
+            replay.points.length - 1
+          ]?.timestamp ??
+          now.toISOString();
+
+
+        const data: ForecastResponse = {
+          microgrid_id:
+            microgridId,
+
+          target,
+
+          dataset_source:
+            "SIMULATED",
+
+          model_id:
+            target === "DEMAND"
+              ? "enhanced_random_forest"
+              : "solar_random_forest",
+
+          model_trained_at:
+            now.toISOString(),
+
+          start:
+            firstTimestamp,
+
+          end:
+            lastTimestamp,
+
+          interval_minutes:
+            target === "DEMAND"
+              ? 30
+              : 5,
+
+          points:
+            replay.points,
+
+          data_provenance_note:
+            replay.data_provenance_note ??
+            "Historical AI model replay using prepared dataset rows.",
+        };
+
+
         setForecast(data);
         setStatus("success");
         setErrorMessage(null);
-      })
-      .catch((err: unknown) => {
-        const message = err instanceof Error ? err.message : "Failed to fetch forecast.";
-        if (message.toLowerCase().includes("no trained")) {
-          setStatus("unavailable");
-        } else {
-          setStatus("error");
-        }
+
+      } catch (err: unknown) {
+
+        const message =
+          err instanceof Error
+            ? err.message
+            : "Failed to fetch AI forecast.";
+
+        setStatus("error");
         setErrorMessage(message);
-      });
-  }, [microgridId, target, horizonHours]);
+
+      }
+
+    },
+    [
+      microgridId,
+      target,
+      horizonHours,
+      refreshKey,
+    ],
+  );
+
 
   useEffect(() => {
-    fetchForecast();
+    void fetchForecast();
   }, [fetchForecast]);
 
-  return { status, forecast, errorMessage };
+
+  return {
+    status,
+    forecast,
+    errorMessage,
+  };
 }
